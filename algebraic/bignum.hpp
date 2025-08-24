@@ -16,9 +16,11 @@ class BigInt {
     static constexpr H msb(F x) { return static_cast<H>(x >> (sizeof(H) * CHAR_BIT)); }
 
     void normalize() {
-        while (!m_Data.empty())
+        while (!m_Data.empty()) {
             if (m_Data.back() != 0)
-                m_Data.pop_back();
+                break;
+            m_Data.pop_back();
+        }
         
         if (m_Data.empty()) {
             m_Sign = false;
@@ -27,13 +29,21 @@ class BigInt {
 
 public:
     BigInt() = default;
-    BigInt(H Val) {
-        m_Data = { Val };
+    explicit BigInt(H Val) {
+        if (Val != 0) {
+            m_Data = { Val };
+        }
     }
     
     // Const functions
     size_t Size() const { return m_Data.size(); }
     H operator[](size_t Index) const { return Index < m_Data.size() ? m_Data[Index] : 0; }
+    H& operator[](size_t Index) {
+        if (Index >= m_Data.size()) {
+            m_Data.resize(Index + 1, 0);
+        }
+        return m_Data[Index];
+    }
     bool IsZero() const { return m_Data.empty(); }
     size_t CountBits() const {
         if (IsZero()) return 0;
@@ -55,18 +65,18 @@ public:
     }
 
     // Static, non mutating
-    // return abs(LHS) < abs(RHS)
-    static bool CompareMagnitude(const BigInt& LHS, const BigInt& RHS) {
+    // return sign(abs(LHS) - abs(RHS))
+    static int32_t CompareMagnitude(const BigInt& LHS, const BigInt& RHS) {
         if (LHS.Size() != RHS.Size()) {
-            return LHS.Size() < RHS.Size();
-        } else {
-            for (size_t i = LHS.Size(); i-- > 0;) {
-                if (LHS[i] != RHS[i]) {
-                    return LHS[i] < RHS[i];
-                }
+            return LHS.Size() < RHS.Size() ? -1 : 1;
+        }
+
+        for (size_t i = LHS.Size(); i-- > 0;) {
+            if (LHS[i] != RHS[i]) {
+                return LHS[i] < RHS[i] ? -1 : 1;
             }
         }
-        return false;
+        return 0;
     }
     
 
@@ -76,7 +86,7 @@ public:
     static BigInt Power2(size_t Exp) {
         BigInt Res;
         Res.m_Data = { 1 };
-        return ShiftWordsLeft(Res, Exp);
+        return ShiftLeft(Res, Exp);
     }
 
     static BigInt Negate(BigInt Val) {
@@ -103,7 +113,7 @@ public:
         for (size_t i = 0; i < Val.Size(); ++i)
             Res.m_Data[i + Amount] = Val[i];
 
-        return std::move(Res);
+        return Res;
     }
 
     static BigInt ShiftWordsRight(BigInt Val, size_t Amount) {
@@ -119,7 +129,7 @@ public:
         for (size_t i = 0; i < Res.Size(); ++i)
             Res.m_Data[i] = Val[i + Amount];
 
-        return std::move(Res);
+        return Res;
     }
 
     static BigInt ShiftLeft(BigInt Val, size_t Bits) {
@@ -158,7 +168,7 @@ public:
         if (BitShift == 0) return Res;
 
         H Carry = 0;
-        for (ssize_t i = Res.Size() - 1; i >= 0; --i) {
+        for (int64_t i = Res.Size() - 1; i >= 0; --i) {
             F Temp = (static_cast<F>(Res[i]) >> BitShift) | (static_cast<F>(Carry) << (WordBits - BitShift));
             Carry = Res[i] & ((1ULL << BitShift) - 1); // save bits that fell off
             Res.m_Data[i] = lsb(Temp);
@@ -193,7 +203,7 @@ public:
             Res.m_Sign = LHS.m_Sign;
             Res.normalize();
         } else {
-            const bool Less = CompareMagnitude(LHS, RHS);
+            const bool Less = CompareMagnitude(LHS, RHS) < 0;
             const BigInt& Minuend = Less ? RHS : LHS;
             const BigInt& Subtrahend = Less ? LHS : RHS;
 
@@ -235,82 +245,42 @@ public:
         return Res;
     }
 
-    static BigInt Divide(BigInt& OutRemainder, const BigInt& LHS, const BigInt& RHS) {
-        if (RHS.IsZero()) throw std::runtime_error("Divide by zero");
-        if (CompareMagnitude(LHS, RHS) < 0) {
-            OutRemainder = LHS;
-            return BigInt();
-        }
+    static BigInt Divide(BigInt& OutRemainder, const BigInt& LHS, BigInt Divisor) {
+        if (Divisor.IsZero()) throw std::runtime_error("Divide by zero");
 
-        BigInt U = LHS;
-        BigInt V = RHS;
-        OutRemainder = BigInt();
+        const bool FinalSign = LHS.m_Sign ^ Divisor.m_Sign; // TODO fix this
+        BigInt Res;
 
-        size_t n = V.Size();
-        size_t m = U.Size() - n;
-        BigInt Q;
-        Q.m_Data.resize(m + 1, 0);
+        // Make divisor negative so we can subtract it from the remainder
+        Divisor.m_Sign = true;
 
-        // 1. Normalize RHS so top bit of V[n-1] is 1
-        size_t WordBits = sizeof(H) * 8;
-        H TopWord = V[n - 1];
-        size_t Shift = 0;
-        while ((TopWord & (1ULL << (WordBits - 1))) == 0) {
-            TopWord <<= 1;
-            ++Shift;
-        }
-        if (Shift) {
-            U = ShiftLeft(U, Shift);
-            V = ShiftLeft(V, Shift);
-        }
+        OutRemainder = LHS;
+        OutRemainder.m_Sign = false;
 
-        // 2. Main division loop
-        for (ssize_t j = m; j >= 0; --j) {
-            // Estimate quotient word
-            F numerator = (static_cast<F>(U.m_Data[j + n]) << WordBits) | U.m_Data[j + n - 1];
-            H qhat = numerator / V.m_Data[n - 1];
-            H rhat = numerator % V.m_Data[n - 1];
+        const size_t DivisorBits = Divisor.CountBits();
 
-            // Correct qhat if necessary
-            while (n > 1 && qhat * V[n - 2] > ((rhat << WordBits) | U.m_Data[j + n - 2])) {
-                --qhat;
-                rhat += V[n - 1];
-                if (rhat >= (1ULL << WordBits)) break;
+        while (CompareMagnitude(OutRemainder, Divisor) >= 0) {
+            if (OutRemainder.CountBits() > DivisorBits + 1) {
+                BigInt Operand = Power2(OutRemainder.CountBits() - DivisorBits - 1);
+
+                Res = Add(Res, Operand);
+                OutRemainder = Add(OutRemainder, Multiply(Operand, Divisor));
+            } else {
+                Res = Add(Res, BigInt(1));
+                OutRemainder = Add(OutRemainder, Divisor);
             }
 
-            // Multiply and subtract qhat * V from U[j..j+n]
-            H borrow = 0;
-            for (size_t i = 0; i < n; ++i) {
-                F prod = static_cast<F>(V.m_Data[i]) * qhat;
-                F sub = static_cast<F>(U.m_Data[i + j]) - lsb(prod) - borrow;
-                U.m_Data[i + j] = lsb(sub);
-                borrow = msb(prod) + (sub >> WordBits ? 1 : 0);
+            if (OutRemainder.IsZero() || CompareMagnitude(OutRemainder, Divisor) < 0) {
+                break;
             }
-            F sub_last = static_cast<F>(U.m_Data[j + n]) - borrow;
-            U.m_Data[j + n] = lsb(sub_last);
-
-            // If subtraction underflowed, correct
-            if (sub_last >> WordBits) {
-                --qhat;
-                H carry = 0;
-                for (size_t i = 0; i < n; ++i) {
-                    F sum = static_cast<F>(U.m_Data[i + j]) + V[i] + carry;
-                    U.m_Data[i + j] = lsb(sum);
-                    carry = msb(sum);
-                }
-                U.m_Data[j + n] += carry;
-            }
-
-            Q.m_Data[j] = qhat;
         }
 
-        // 3. Denormalize remainder
-        if (Shift) OutRemainder = ShiftRight(U, Shift);
-        else OutRemainder = U;
+        Res.m_Sign = FinalSign;
+        OutRemainder.m_Sign = LHS.m_Sign;
 
-        Q.normalize();
+        Res.normalize();
         OutRemainder.normalize();
-        return Q;
+        return Res;
     }
 
     
@@ -355,25 +325,3 @@ public:
         return Str;
     }
 };
-
-using Num = BigInt<uint64_t, uint32_t>;
-
-int main() {
-
-
-
-
-    Num a = Num::FromString("1000");
-
-    return 0;
-
-    Num b = Num::FromString("50");
-    Num r;
-
-    return 0;
-
-    std::cout << Num::ToString(Num::Add(a, b));
-    std::cout << Num::ToString(Num::Multiply(a, b));
-    std::cout << Num::ToString(Num::Divide(r, a, b));
-    std::cout << Num::ToString(r);
-}
