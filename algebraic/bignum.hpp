@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -38,6 +40,7 @@ public:
     
     // Const functions
     size_t Size() const { return m_Data.size(); }
+    int32_t Sign() const { return IsZero() ? 0 : (m_Sign ? -1 : 1); }
     H operator[](size_t Index) const { return Index < m_Data.size() ? m_Data[Index] : 0; }
     H& operator[](size_t Index) {
         if (Index >= m_Data.size()) {
@@ -82,7 +85,6 @@ public:
     
 
     // Production functions
-
     // Return 2^Exp
     static BigInt Power2(size_t Exp) {
         BigInt Res;
@@ -257,7 +259,7 @@ public:
     static BigInt Divide(BigInt& OutRemainder, const BigInt& LHS, BigInt Divisor) {
         if (Divisor.IsZero()) throw std::runtime_error("Divide by zero");
 
-        const bool FinalSign = LHS.m_Sign ^ Divisor.m_Sign; // TODO fix this
+        const bool FinalSign = LHS.m_Sign ^ Divisor.m_Sign;
         BigInt Res;
 
         // Make divisor negative so we can subtract it from the remainder
@@ -271,10 +273,11 @@ public:
         while (CompareMagnitude(OutRemainder, Divisor) >= 0) {
             if (OutRemainder.CountBits() > DivisorBits + 1) {
                 size_t BitDiff = OutRemainder.CountBits() - DivisorBits - 1;
-                BigInt Operand = Power2(BitDiff);
+                BigInt Operand = Divisor;
+                Operand = ShiftLeft(Operand, BitDiff);
 
-                Res = Add(Res, Operand);
-                OutRemainder = Add(OutRemainder, Multiply(Operand, Divisor));
+                Res = Add(Res, Power2(BitDiff));
+                OutRemainder = Add(OutRemainder, Operand);
             } else {
                 Res = Add(Res, BigInt(1));
                 OutRemainder = Add(OutRemainder, Divisor);
@@ -295,7 +298,23 @@ public:
         return Res;
     }
 
+    // Slow!
+    static BigInt Mod(const BigInt& LHS, const BigInt& RHS) {
+        BigInt Res;
+        Divide(Res, LHS, RHS);
+        return Res;
+    }
     
+    static BigInt GCD(BigInt LHS, BigInt RHS) {
+        while (RHS) {
+            BigInt Temp = RHS;
+            RHS = Mod(LHS, RHS);
+            LHS = Temp;
+        }
+        return LHS;
+    }
+
+
     // Serde
     static BigInt FromString(const std::string& Str) {
         BigInt Res;
@@ -363,4 +382,25 @@ public:
 
         return Str;
     }
+
+    
+    // Operators
+    BigInt operator+() const { return *this; }
+    BigInt operator-() const { return Negate(*this); }
+    BigInt operator+(const BigInt& Other) const { return Add(*this, Other); }
+    BigInt operator-(const BigInt& Other) const { return Add(*this, Negate(Other)); }
+    BigInt operator*(const BigInt& Other) const { return Multiply(*this, Other); }
+    BigInt operator/(const BigInt& Other) const { BigInt _; return Divide(_, *this, Other); }
+    BigInt operator%(const BigInt& Other) const { BigInt Res; Divide(Res, *this, Other); return Res; }
+    bool operator==(const BigInt& Other) const { return (m_Sign == Other.m_Sign) && (CompareMagnitude(*this, Other) == 0); }
+    bool operator!=(const BigInt& Other) const { return !(*this == Other); }
+    bool operator<(const BigInt& Other) const {
+        if (Sign() > Other.Sign()) return false;
+        if (Sign() < Other.Sign()) return true;
+        return Sign() >= 0 ? CompareMagnitude(*this, Other) < 0 : CompareMagnitude(*this, Other) > 0;
+    }
+    bool operator>(const BigInt& Other) const { return Other < *this; }
+    bool operator<=(const BigInt& Other) const { return !(Other < *this); }
+    bool operator>=(const BigInt& Other) const { return !(*this < Other); }
+    explicit operator bool() const { return !IsZero(); }
 };
