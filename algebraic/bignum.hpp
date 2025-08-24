@@ -2,6 +2,7 @@
 #include <string>
 #include <algorithm>
 #include <iostream>
+#include <assert.h>
 
 template<typename F, typename H>
 concept WideEnough = std::unsigned_integral<F> && std::unsigned_integral<H> && (sizeof(F) == 2 * sizeof(H));
@@ -90,7 +91,7 @@ public:
     }
 
     static BigInt Negate(BigInt Val) {
-        Val.m_Sign = !Val.m_Sign;
+        Val.m_Sign = !Val.m_Sign && !Val.IsZero();
         return Val;
     }
 
@@ -105,7 +106,7 @@ public:
 
         BigInt Res;
         Res.m_Sign = Val.m_Sign;
-        Res.m_Data.resize(Val.Size() + Amount);
+        Res.m_Data.resize(Val.Size() + Amount, 0);
 
         for (size_t i = 0; i < Amount; ++i)
             Res.m_Data[i] = 0;
@@ -124,7 +125,7 @@ public:
 
         BigInt Res;
         Res.m_Sign = Val.m_Sign;
-        Res.m_Data.resize(Val.Size() - Amount);
+        Res.m_Data.resize(Val.Size() - Amount, 0);
 
         for (size_t i = 0; i < Res.Size(); ++i)
             Res.m_Data[i] = Val[i + Amount];
@@ -193,7 +194,11 @@ public:
         if (LHS.m_Sign == RHS.m_Sign) {
             H Carry = 0;
             for (size_t i = 0; i < Size; ++i) {
-                const F Sum = LHS[i] + RHS[i] + Carry;
+                const F Sum
+                    = static_cast<F>(LHS[i])
+                    + static_cast<F>(RHS[i])
+                    + Carry;
+                
                 Res.m_Data[i] = lsb(Sum);
                 Carry = msb(Sum);
             }
@@ -209,7 +214,11 @@ public:
 
             H Borrow = 0;
             for (size_t i = 0; i < Size; ++i) {
-                const F Diff = static_cast<F>(Minuend[i]) - static_cast<F>(Subtrahend[i]) - Borrow;
+                const F Diff
+                    = static_cast<F>(Minuend[i])
+                    - static_cast<F>(Subtrahend[i])
+                    - Borrow;
+                
                 Res.m_Data[i] = lsb(Diff);
                 Borrow = (Minuend[i] < Subtrahend[i] + Borrow) ? 1 : 0;
             }
@@ -261,7 +270,8 @@ public:
 
         while (CompareMagnitude(OutRemainder, Divisor) >= 0) {
             if (OutRemainder.CountBits() > DivisorBits + 1) {
-                BigInt Operand = Power2(OutRemainder.CountBits() - DivisorBits - 1);
+                size_t BitDiff = OutRemainder.CountBits() - DivisorBits - 1;
+                BigInt Operand = Power2(BitDiff);
 
                 Res = Add(Res, Operand);
                 OutRemainder = Add(OutRemainder, Multiply(Operand, Divisor));
@@ -269,6 +279,8 @@ public:
                 Res = Add(Res, BigInt(1));
                 OutRemainder = Add(OutRemainder, Divisor);
             }
+
+            assert(OutRemainder.m_Sign == false);
 
             if (OutRemainder.IsZero() || CompareMagnitude(OutRemainder, Divisor) < 0) {
                 break;
@@ -322,6 +334,33 @@ public:
 
         if (Val.m_Sign) Str.push_back('-');
         std::reverse(Str.begin(), Str.end());
+        return Str;
+    }
+
+    static std::string ToHexString(const BigInt& Val) {
+        if (Val.IsZero()) return "0";
+
+        static const char HexDigits[] = "0123456789ABCDEF";
+        std::string Str;
+        if (Val.m_Sign) Str.push_back('-');
+        Str += "0x";
+
+        bool started = false;
+        int64_t totalBits = Val.Size() * sizeof(H) * 8;
+
+        for (int64_t bit = totalBits - 4; bit >= 0; bit -= 4) {
+            size_t wordIndex = bit / (sizeof(H) * 8);
+            size_t bitIndex = bit % (sizeof(H) * 8);
+
+            H word = Val[wordIndex];
+            char hexChar = HexDigits[(word >> bitIndex) & 0xF];
+
+            if (!started && hexChar == '0') continue; // skip leading zeros
+            started = true;
+            Str.push_back(hexChar);
+            //if (bit % (sizeof(H) * 4) == 0) Str.push_back('_');
+        }
+
         return Str;
     }
 };

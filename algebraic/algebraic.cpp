@@ -7,17 +7,26 @@ using Num = BigInt<uint64_t, uint32_t>;
 
 
 int main() {
-    Num a = Num::FromString("5120000000000");
-    Num b = Num::FromString("2550000000000");
+    Num a = Num::FromString("805947832982430823949839");
+    Num b = Num::FromString("378438373");
     Num r;
+
+    /*
+    std::cout << Num::ToHexString(a) << "\n";
+    std::cout << Num::ToHexString(b) << "\n";
+    std::cout << Num::ToHexString(Num::Multiply(a, b)) << "\n";
 
     Num d = Num::Divide(r, a, b);
 
+    return 0;
+    */
+
     std::cout << Num::ToString(a) << "\n";
+
     std::cout << Num::ToString(b) << "\n";
+    std::cout << Num::ToString(Num::Multiply(a, b)) << "\n";
 
     std::cout << Num::ToString(Num::Add(a, b)) << "\n";
-    std::cout << Num::ToString(Num::Multiply(a, b)) << "\n";
     std::cout << Num::ToString(Num::Divide(r, a, b)) << "\n";
     std::cout << Num::ToString(r) << "\n";
 
