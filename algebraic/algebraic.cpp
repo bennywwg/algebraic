@@ -3,44 +3,53 @@
 
 #include "bignum.hpp"
 #include "fixed.hpp"
+#include "complex.hpp"
+#include "polynomial.hpp"
 
 #include <map>
 
-using Num = BigInt<unsigned __int128, uint64_t>;
-using Rat = Rational<unsigned __int128, uint64_t>;
+using I = BigInt<unsigned __int128, uint64_t>;
+using R = Rational<I>;
+using Z = Complex<R>;
+using P = Polynomial<Z>;
 
 int main() {
-    Num a = Num::FromString("80594783298243082394983980594783298243082394983983298243082394983980594783");
-    Num b = Num::FromString("2430823949839805947832982430823949839");
-    Num r;
+    I a = I::FromString("80594783298243082394983980594783298243082394983983298243082394983980594783");
+    I b = I::FromString("2430823949839805947832982430823949839");
+    I r;
 
-    /*
-    std::cout << Num::ToHexString(a) << "\n";
-    std::cout << Num::ToHexString(b) << "\n";
-    std::cout << Num::ToHexString(Num::Multiply(a, b)) << "\n";
+    std::cout << I::ToString(b) << "\n";
+    std::cout << I::ToString(-(-a * -b)) << "\n";
 
-    Num d = Num::Divide(r, a, b);
-
-    return 0;
-    */
-
-    std::cout << Num::ToString(b) << "\n";
-    std::cout << Num::ToString(-Num::Multiply(-a, -b)) << "\n";
-
-    std::cout << Num::ToString(Num::Add(a, b)) << "\n";
-    std::cout << Num::ToString(-Num::Divide(r, a, -b)) << "\n";
-    std::cout << Num::ToString(-r) << "\n";
-
+    std::cout << I::ToString(-(r / a)) << "\n";
+    std::cout << I::ToString(-r) << "\n";
 
     std::cout << "\nRationals:\n\n";
 
-    Rat r1 = Rat::FromString("498389340.783284934939949");
-    Rat n = Rat::FromString("493498389340344044");
-    Rat d = Rat::FromString("48493");
-    std::cout << Rat::ToString(n / d) << "\n";
+    R n = R::FromString("8934034449838893403449340.783284934939949");
+    R r1 = R::FromString("493498389340344044");
+    R d = R::FromString("1234567899468291094980");
+    std::cout << R::ToString(n / d) << "\n";
 
-    std::map<Num, std::string> Map;
-    Map[a] = "abc";
+    std::cout << R::ToString(
+        R::Pow(n, 10) / R::Pow(d, 10) - R::Pow(n / d, 10)
+    ) << "\n";
+
+    /*
+
+    std::cout << "\nComplex:\n\n";
+
+    Z complex = Z::MakeImag(n);
+
+    std::cout << Z::ToString(complex) << "\n";
+
+    std::cout << "\nPolynomials:\n\n";
+
+    P p(Z(R(I(3))), 1);
+
+    std::cout << P::ToString(p * p + p) << "\n";
+
+    */
 
     return 0;
 }
