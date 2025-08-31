@@ -8,10 +8,14 @@
 
 #include <map>
 
-using I = BigInt<unsigned __int128, uint64_t>;
+using I = BigInt<>;
 using R = Rational<I>;
 using Z = Complex<R>;
 using P = Polynomial<Z>;
+
+std::string Global_ToString(const I& Val) {
+    return std::to_string(Val.Size());
+}
 
 int main() {
     I a = I::FromString("80594783298243082394983980594783298243082394983983298243082394983980594783");
@@ -19,9 +23,10 @@ int main() {
     I r;
 
     std::cout << I::ToString(b) << "\n";
-    std::cout << I::ToString(-(-a * -b)) << "\n";
+    std::cout << I::ToString(-(-a / -b)) << "\n";
 
-    std::cout << I::ToString(-(r / a)) << "\n";
+    std::cout << I::ToString(-(a / b)) << "\n";
+    r = a % b;
     std::cout << I::ToString(-r) << "\n";
 
     std::cout << "\nRationals:\n\n";
@@ -35,8 +40,6 @@ int main() {
         R::Pow(n, 10) / R::Pow(d, 10) - R::Pow(n / d, 10)
     ) << "\n";
 
-    /*
-
     std::cout << "\nComplex:\n\n";
 
     Z complex = Z::MakeImag(n);
@@ -45,11 +48,11 @@ int main() {
 
     std::cout << "\nPolynomials:\n\n";
 
-    P p(Z(R(I(3))), 1);
+    P num = P(2, 3) - P(3, 2) + P(4, 1) + P(5, 0);
+    P denom = P(1, 1) + P(2, 0);
 
-    std::cout << P::ToString(p * p + p) << "\n";
-
-    */
+    std::cout << P::ToString(num) << " / " << P::ToString(denom) << " = \n";
+    std::cout << P::ToString(num / denom) << " rem " << P::ToString(num % denom) << "\n";
 
     return 0;
 }

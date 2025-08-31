@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="BigInt&lt;*,*&gt;">
+		<DisplayString>{m_Data.size() ? m_Data[0] : 0}</DisplayString>
+	</Type>
+	<Type Name="Polynomial&lt;*&gt;">
+		<DisplayString>{DebugStr}</DisplayString>
+	</Type>
+</AutoVisualizer>

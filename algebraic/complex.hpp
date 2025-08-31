@@ -8,6 +8,11 @@ public:
     T Real;
     T Imag;
 
+    Complex() = default;
+    Complex(int32_t Val) : Real { Val } {}
+    Complex(T InReal) : Real(InReal) { }
+    Complex(T InReal, T InImag) : Real(InReal), Imag(InImag) { }
+
     bool IsZero() const {
         return Real.IsZero() && Imag.IsZero();
     }
@@ -23,7 +28,7 @@ public:
     }
 
     // Serde
-    static std::string ToString(Complex Val, int64_t MaxDigits = 20) {
+    static std::string ToString(Complex Val, int64_t MaxDigits = 3) {
         if (Val.Real.IsZero() && Val.Imag.IsZero()) {
             return "0";
         }
@@ -32,6 +37,12 @@ public:
         } else {
             return T::ToString(Val.Real);
         }
+    }
+
+    const std::wstring ToString() const {
+        return L"ABC";
+        std::string Res = ToString(*this);
+        return std::wstring(Res.begin(), Res.end());
     }
 
     static Complex Power(Complex LHS, size_t RHS) {
@@ -94,14 +105,16 @@ public:
     }
     Complex& operator /=(const Complex& Other) {
         T Den = Other.Real * Other.Real + Other.Imag * Other.Imag;
-        Den = T::Reciprocal(Den);
+        Den.ApplyReciprocal();
         Complex C;
         C.Real = (Real * Other.Real + Imag * Other.Imag) * Den;
         C.Imag = (Imag * Other.Real - Real * Other.Imag) * Den;
         return C;
     }
     Complex operator/(const Complex& Other) const {
-        
+        Complex Res = *this;
+        Res /= Other;
+        return Res;
     }
     bool operator==(const Complex& Other) const { return Real == Other.Real && Imag == Other.Imag; }
     bool operator!=(const Complex& Other) const { return !(*this == Other); }

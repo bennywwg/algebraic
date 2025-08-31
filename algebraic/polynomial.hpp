@@ -4,6 +4,13 @@
 
 template<typename T = Complex<>>
 class Polynomial {
+private:
+    std::string DebugStr = "0";
+
+    void _UpdateDebugStr() {
+        DebugStr = ToString(*this);
+    }
+
 public:
     struct Term {
         uint32_t Exp { 0 };
@@ -12,12 +19,6 @@ public:
 
 private:
     std::vector<Term> Terms;
-
-    void sort() {
-        std::sort(Terms.begin(), Terms.end(), [](const Term& a, const Term& b) {
-            return a.Exp < b.Exp;
-        });
-    }
 
     void normalize() {
         Terms.erase(
@@ -45,6 +46,16 @@ private:
     }
 
 public:
+
+    Polynomial() = default;
+    
+    Polynomial(T Cof, uint32_t Exp) : Terms{ { Exp, Cof } } {
+        normalize();
+
+        _UpdateDebugStr();
+    }
+
+
     T GetCof(uint32_t Exp) const {
         for (Term const& t : Terms) {
             if (t.Exp == Exp) {
@@ -61,11 +72,6 @@ public:
     }
     bool IsZero() const {
         return Terms.empty();
-    }
-
-    Polynomial() = default;
-    Polynomial(T Cof, uint32_t Exp) : Terms { { Exp, Cof } } {
-        normalize();
     }
 
     // Set this value to be the remainder of ((*this) / Divisor)
@@ -109,31 +115,45 @@ public:
 
 
     // Serde
-    static std::string ToString(const Polynomial& Val, int64_t MaxDigits = 20) {
+    static std::string ToString(const Polynomial& Val, int64_t MaxDigits = 3) {
         if (Val.IsZero()) {
             return "0";
         }
 
         std::string Res;
+        bool InvertNextSign = false;
         for (size_t i = Val.Terms.size() - 1;; --i) {
             const Term& t = Val.Terms[i];
+            const Term n = (i == 0) ? Term() : Val.Terms[i - 1];
             if (!t.Cof.IsReal()) {
                 Res += "(";
             }
 
-            Res += T::ToString(t.Cof);
+            if (t.Cof != 1 || t.Exp == 0) {
+                Res += T::ToString(InvertNextSign ? -t.Cof : t.Cof);
+            }
 
             if (!t.Cof.IsReal()) {
                 Res += ")";
             }
 
-            if (t.Exp != 0) {
-                Res += "x^" + std::to_string(t.Exp);
+            if (t.Exp > 0) {
+                Res += "x";
+            }
+
+            if (t.Exp > 1) {
+                Res += "^" + std::to_string(t.Exp);
             }
             
             if (i == 0) break;
 
-            Res += " ";
+            if (n.Cof.IsReal() && n.Cof.Real < 0) {
+                InvertNextSign = true;
+                Res += " - ";
+            } else {
+                InvertNextSign = false;
+                Res += " + ";
+            }
         }
 
         return Res;
@@ -147,23 +167,25 @@ public:
         }
         return Res;
     }
-    Polynomial& operator -=(const Polynomial& Other) {
+    Polynomial& operator-=(const Polynomial Other) {
         for (Term const& o : Other.Terms) {
             GetCof(o.Exp) -= o.Cof;
         }
         normalize();
+        _UpdateDebugStr();
         return *this;
     }
-    Polynomial operator-(const Polynomial& Other) {
+    Polynomial operator-(const Polynomial Other) const {
         Polynomial Res = *this;
         Res -= Other;
         return Res;
     }
-    Polynomial& operator +=(const Polynomial& Other) {
+    Polynomial& operator+=(const Polynomial Other) {
         for (Term const& o : Other.Terms) {
             GetCof(o.Exp) += o.Cof;
         }
         normalize();
+        _UpdateDebugStr();
         return *this;
     }
     Polynomial operator+(Polynomial Other) const {
@@ -171,31 +193,36 @@ public:
         return Other;
     }
     Polynomial& operator*=(const Polynomial& Other) {
+        Polynomial Result;
         for (Term const& t : Terms) {
             for (Term const& o : Other.Terms) {
-                (*this) += Polynomial(t.Cof * o.Cof, t.Exp + o.Exp);
+                Result += Polynomial(t.Cof * o.Cof, t.Exp + o.Exp);
             }
         }
+        *this = std::move(Result);
+        _UpdateDebugStr();
         return *this;
     }
     Polynomial operator*(Polynomial Other) const {
         Other *= *this;
         return Other;
     }
-    Polynomial& operator/=(const Polynomial& Other) {
+    Polynomial& operator/=(const Polynomial Other) {
         Polynomial _ = *this;
         _.ComputeRemainder(Other, *this);
+        _UpdateDebugStr();
         return *this;
     }
-    Polynomial operator/(const Polynomial& Other) const {
+    Polynomial operator/(const Polynomial Other) const {
         Polynomial _ = *this;
         Polynomial Quotient;
         _.ComputeRemainder(Other, Quotient);
         return Quotient;
     }
-    Polynomial& operator%=(const Polynomial& Other) {
+    Polynomial& operator%=(const Polynomial Other) {
         Polynomial _;
         ComputeRemainder(Other, _);
+        _UpdateDebugStr();
         return *this;
     }
     Polynomial operator%(const Polynomial& Other) const {

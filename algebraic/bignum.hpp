@@ -39,24 +39,33 @@ public:
         using U = std::make_unsigned_t<T>;
         if constexpr (std::signed_integral<T>) {
             m_Sign = Val < 0;
-            m_Data = { static_cast<U>(-Val) };
+            m_Data = { static_cast<U>(m_Sign ? -Val : Val) };
         } else {
             m_Sign = false;
             m_Data = { static_cast<U>(Val) };
         }
+        normalize();
     }
     
     // Basic functions
-    size_t Size() const { return m_Data.size(); }
-    int32_t Sign() const { return IsZero() ? 0 : (m_Sign ? -1 : 1); }
-    H operator[](size_t Index) const { return Index < m_Data.size() ? m_Data[Index] : 0; }
+    size_t Size() const {
+        return m_Data.size();
+    }
+    int32_t Sign() const {
+        return IsZero() ? 0 : (m_Sign ? -1 : 1);
+    }
+    H operator[](size_t Index) const {
+        return Index < m_Data.size() ? m_Data[Index] : 0;
+    }
     H& operator[](size_t Index) {
         if (Index >= m_Data.size()) {
             m_Data.resize(Index + 1, 0);
         }
         return m_Data[Index];
     }
-    bool IsZero() const { return m_Data.empty(); }
+    bool IsZero() const {
+        return m_Data.empty();
+    }
     size_t TopBitIndex() const {
         if (IsZero()) return 0;
 
@@ -158,7 +167,9 @@ public:
 
         ApplyShiftWordsLeft(Amount / m_wordBits);
 
-        if (BitShift == 0) return;
+        if (BitShift == 0) {
+            return;
+        }
 
         H Carry = 0;
         for (size_t i = 0; i < m_Data.size(); ++i) {
@@ -175,7 +186,9 @@ public:
 
         ApplyShiftWordsRight(Amount / m_wordBits);
 
-        if (BitShift == 0 || IsZero()) return;
+        if (BitShift == 0 || IsZero()) {
+            return;
+        }
 
         H Carry = 0;
         for (int64_t i = m_Data.size() - 1; i >= 0; --i) {
@@ -302,19 +315,20 @@ public:
         return Str;
     }
 
-    
+
     // Operators
     BigInt operator+() const {
         return *this;
     }
     BigInt operator-() const {
-        BigInt Res;
+        BigInt Res = *this;
         Res.ApplyNegate();
         return Res;
     }
-    BigInt& operator+=(const BigInt& Other) {
+    BigInt& operator+=(const BigInt Other) {
         if (IsZero()) {
             *this = Other;
+
             return *this;
         } else if (Other.IsZero()) {
             return *this;
@@ -327,6 +341,7 @@ public:
         if (m_Sign == Other.m_Sign) {
             if (DiffMag == 0) {
                 ApplyShiftLeft(1);
+
                 return *this;
             }
 
@@ -380,7 +395,7 @@ public:
         Other += *this;
         return Other;
     }
-    BigInt& operator-=(const BigInt& Other) {
+    BigInt& operator-=(const BigInt Other) {
         *this += -Other;
         return *this;
     }
@@ -389,7 +404,7 @@ public:
         Other.ApplyNegate();
         return Other;
     }
-    BigInt& operator*=(const BigInt& Other) {
+    BigInt& operator*=(const BigInt Other) {
         std::vector<H> TmpData;
         TmpData.resize(m_Data.size() + Other.m_Data.size(), 0);
 
@@ -419,7 +434,7 @@ public:
         Other *= *this;
         return Other;
     }
-    BigInt& operator/=(const BigInt& Other) {
+    BigInt& operator/=(const BigInt Other) {
         BigInt Quotient;
         ApplyRemainder(Other, &Quotient);
         *this = Quotient;
@@ -431,7 +446,7 @@ public:
         Remainder.ApplyRemainder(Other, &Quotient);
         return Quotient;
     }
-    BigInt& operator%=(const BigInt& Other) {
+    BigInt& operator%=(const BigInt Other) {
         ApplyRemainder(Other);
         return *this;
     }
@@ -440,15 +455,27 @@ public:
         Res.ApplyRemainder(Other);
         return Res;
     }
-    bool operator==(const BigInt& Other) const { return (m_Sign == Other.m_Sign) && (DiffMagnitude(*this, Other) == 0); }
-    bool operator!=(const BigInt& Other) const { return !(*this == Other); }
+    bool operator==(const BigInt& Other) const {
+        return (m_Sign == Other.m_Sign) && (DiffMagnitude(*this, Other) == 0);
+    }
+    bool operator!=(const BigInt& Other) const {
+        return !(*this == Other);
+    }
     bool operator<(const BigInt& Other) const {
         if (Sign() > Other.Sign()) return false;
         if (Sign() < Other.Sign()) return true;
         return Sign() >= 0 ? DiffMagnitude(*this, Other) < 0 : DiffMagnitude(*this, Other) > 0;
     }
-    bool operator>(const BigInt& Other) const { return Other < *this; }
-    bool operator<=(const BigInt& Other) const { return !(Other < *this); }
-    bool operator>=(const BigInt& Other) const { return !(*this < Other); }
-    explicit operator bool() const { return !IsZero(); }
+    bool operator>(const BigInt& Other) const {
+        return Other < *this;
+    }
+    bool operator<=(const BigInt& Other) const {
+        return !(Other < *this);
+    }
+    bool operator>=(const BigInt& Other) const {
+        return !(*this < Other);
+    }
+    explicit operator bool() const {
+        return !IsZero();
+    }
 };

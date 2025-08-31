@@ -22,28 +22,15 @@ class Rational {
 
 public:
     Rational() = default;
-    Rational(int64_t Val) : A { Val }, B { 1 } { }
-    Rational(const T& Val) : A(Val) { }
-    Rational(const T& Val, const T& Denom) : A(Val), B(Denom) {
+    Rational(int32_t Val) : A { Val } { }
+    Rational(const T& Val) : A { Val } {}
+    Rational(const T& Val, const T& Denom) : A { Val }, B { Denom } {
         if (Denom.IsZero()) throw std::runtime_error("Attempting reciprocal of zero rational");
         normalize();
     }
 
-    bool IsZero() const { return A.IsZero(); }
-
-    // Production functions
-    static Rational Reciprocal(Rational Val) {
-        if (Val.IsZero()) throw std::runtime_error("Attempting reciprocal of zero rational");
-
-        std::swap(Val.A, Val.B);
-
-        // We could call normalize, but it would redundantly calculate the GCD, so just fix the signs
-        if (Val.B.Sign() < 0) {
-            Val.A = -Val.A;
-            Val.B = -Val.B;
-        }
-
-        return Val;
+    bool IsZero() const {
+        return A.IsZero();
     }
 
     static Rational Pow(Rational LHS, size_t RHS) {
@@ -77,7 +64,7 @@ public:
         return R;
     }
 
-    static std::string ToString(Rational Val, int64_t MaxDigits = 20) {
+    static std::string ToString(Rational Val, int64_t MaxDigits = 3) {
         std::string Res = Val.A.Sign() < 0 ? "-" : "";
         if (Val.A.Sign() < 0) Val.A = -Val.A;
         T Quot = Val.A / Val.B;
@@ -108,7 +95,12 @@ public:
         return Res;
     }
 
-    void ComputeReciprocal() {
+    const std::wstring ToString() const {
+        std::string Res = ToString(*this);
+        return std::wstring(Res.begin(), Res.end());
+    }
+
+    void ApplyReciprocal() {
         if (IsZero()) throw std::runtime_error("Attempting reciprocal of zero rational");
 
         std::swap(A, B);
@@ -121,16 +113,58 @@ public:
     }
 
     // Operators
-    Rational operator+() const { return *this; }
-    Rational operator-() const { Rational r = *this; r.A = -r.A; return r; }
-    Rational operator+(const Rational& o) const { Rational r; r.A = A * o.B + o.A * B; r.B = B * o.B; r.normalize(); return r; }
-    Rational operator-(const Rational& o) const { Rational r; r.A = A * o.B - o.A * B; r.B = B * o.B; r.normalize(); return r; }
-    Rational operator*(const Rational& o) const { Rational r; r.A = A * o.A; r.B = B * o.B; r.normalize(); return r; }
-    Rational operator/(const Rational& o) const { return (*this) * Reciprocal(o); }
-    bool operator==(const Rational& o) const { return A == o.A && B == o.B; }
-    bool operator!=(const Rational& o) const { return !(*this == o); }
-    bool operator<(const Rational& o) const { return A * o.B < o.A * B; }
-    bool operator>(const Rational& o) const { return o < *this; }
-    bool operator<=(const Rational& o) const { return !(*this > o); }
-    bool operator>=(const Rational& o) const { return !(*this < o); }
+    Rational operator+() const {
+        return *this;
+    }
+    Rational operator-() const {
+        Rational r = *this;
+        r.A.ApplyNegate();
+        return r;
+    }
+    Rational& operator+=(const Rational Other) {
+        A = A * Other.B + Other.A * B;
+        B = B * Other.B;
+        return *this;
+    }
+    Rational operator+(Rational Other) const {
+        Other += *this;
+        return Other;
+    }
+    Rational& operator-=(const Rational Other) {
+        A = A * Other.B - Other.A * B;
+        B = B * Other.B;
+        normalize();
+        return *this;
+    }
+    Rational operator-(const Rational& Other) const {
+        Rational Res = *this;
+        Res -= Other;
+        return Res;
+    }
+    Rational& operator*=(const Rational Other) {
+        A *= Other.A;
+        B *= Other.B;
+        normalize();
+        return *this;
+    }
+    Rational operator*(Rational Other) const {
+        Other *= *this;
+        return Other;
+    }
+    Rational& operator/=(Rational Other) {
+        Other.ApplyReciprocal();
+        *this *= Other;
+        return *this;
+    }
+    Rational operator/(const Rational& Other) const {
+        Rational Res = *this;
+        Res /= Other;
+        return Res;
+    }
+    bool operator==(const Rational& Other) const { return A == Other.A && B == Other.B; }
+    bool operator!=(const Rational& Other) const { return !(*this == Other); }
+    bool operator<(const Rational& Other) const { return A * Other.B < Other.A * B; }
+    bool operator>(const Rational& Other) const { return Other < *this; }
+    bool operator<=(const Rational& Other) const { return !(*this > Other); }
+    bool operator>=(const Rational& Other) const { return !(*this < Other); }
 };
