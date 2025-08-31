@@ -382,9 +382,6 @@ public:
                     Borrow = (Diff >> (sizeof(H) * 8)) & 1;
                 }
 
-                if (DiffMag < 0) { // *this < Other
-                    m_Data = std::move(Tmp.m_Data);
-                }
                 normalize();
             }
         }

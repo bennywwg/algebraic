@@ -100,6 +100,12 @@ public:
         return std::wstring(Res.begin(), Res.end());
     }
 
+    void ApplyAbs() {
+        A.ApplyAbs();
+    }
+    void ApplyNegate() {
+        A.ApplyNegate();
+    }
     void ApplyReciprocal() {
         if (IsZero()) throw std::runtime_error("Attempting reciprocal of zero rational");
 

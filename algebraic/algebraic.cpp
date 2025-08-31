@@ -22,6 +22,11 @@ int main() {
     I b = I::FromString("2430823949839805947832982430823949839");
     I r;
 
+    I LHS(-100);
+    I RHS(-4);
+
+    std::cout << I::ToString(LHS - RHS) << "\n";
+
     std::cout << I::ToString(b) << "\n";
     std::cout << I::ToString(-(-a / -b)) << "\n";
 
@@ -51,8 +56,19 @@ int main() {
     P num = P(2, 3) - P(3, 2) + P(4, 1) + P(5, 0);
     P denom = P(1, 1) + P(2, 0);
 
-    std::cout << P::ToString(num) << " / " << P::ToString(denom) << " = \n";
+    std::cout << "(" << P::ToString(num) << ") / (" << P::ToString(denom) << ") = \n";
     std::cout << P::ToString(num / denom) << " rem " << P::ToString(num % denom) << "\n";
+
+    P roots = P(1, 4) - P(10, 2) + P(1, 0);
+
+    std::cout << "\nsturm\n\n";
+
+    auto sturm = P::MakeSturmSequence(roots);
+
+    R testVal1 = P::CauchyBounds(roots);
+    R testVal2 = -testVal1;
+
+    std::cout << "Num = " << P::MinNumRootsEnclosed(sturm, testVal1, testVal2) << "\n";
 
     return 0;
 }

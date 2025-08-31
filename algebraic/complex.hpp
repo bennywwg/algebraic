@@ -26,6 +26,12 @@ public:
     static Complex MakeImag(T Val) {
         return { { }, Val };
     }
+    
+
+    void ApplyNegate() {
+        Real.ApplyNegate();
+        Imag.ApplyNegate();
+    }
 
     // Serde
     static std::string ToString(Complex Val, int64_t MaxDigits = 3) {
@@ -104,12 +110,14 @@ public:
         return Other;
     }
     Complex& operator /=(const Complex& Other) {
+        // TODO could be more efficient
         T Den = Other.Real * Other.Real + Other.Imag * Other.Imag;
         Den.ApplyReciprocal();
         Complex C;
         C.Real = (Real * Other.Real + Imag * Other.Imag) * Den;
         C.Imag = (Imag * Other.Real - Real * Other.Imag) * Den;
-        return C;
+        *this = C;
+        return *this;
     }
     Complex operator/(const Complex& Other) const {
         Complex Res = *this;

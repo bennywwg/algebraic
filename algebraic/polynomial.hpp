@@ -46,9 +46,7 @@ private:
     }
 
 public:
-
     Polynomial() = default;
-    
     Polynomial(T Cof, uint32_t Exp) : Terms{ { Exp, Cof } } {
         normalize();
 
@@ -76,25 +74,35 @@ public:
 
     // Set this value to be the remainder of ((*this) / Divisor)
     // Store the quotient in OutQuotient
-    void ComputeRemainder(const Polynomial& Divisor, Polynomial& OutQuotient) {
+    void ApplyRemainder(const Polynomial Divisor, Polynomial& OutQuotient) {
         if (Divisor.IsZero()) throw std::runtime_error("Polynomial division has zero quotient");
 
         const Term DivisorLeading = Divisor.GetLeadingTerm();
 
         OutQuotient = Polynomial { };
         
-        while (!IsZero() && DivisorLeading.Exp <= GetLeadingTerm().Exp) {
+        while (!IsZero()) {
+            const Term LeadingTerm = GetLeadingTerm();
+
+            if (DivisorLeading.Exp > LeadingTerm.Exp) {
+                break;
+            }
+
             const Polynomial Factor {
-                GetLeadingTerm().Cof / DivisorLeading.Cof,
-                GetLeadingTerm().Exp - DivisorLeading.Exp
+                LeadingTerm.Cof / DivisorLeading.Cof,
+                LeadingTerm.Exp - DivisorLeading.Exp
             };
+
             OutQuotient += Factor;
-            (*this) -= Divisor * Factor;
+
+            const Polynomial Tmp = Divisor * Factor;
+
+            (*this) -= Tmp;
         }
     }
 
     // Set this value to be the Nth derivative of itself
-    void ComputeDerivative(size_t N) {
+    void ApplyDerivative(size_t N) {
         if (N == 0) return;
 
         Terms.erase(
@@ -111,8 +119,106 @@ public:
             t.Cof = CofNew;
             t.Exp -= N;
         }
+
+        _UpdateDebugStr();
     }
 
+    T Evaluate(const T& Value) const {
+        T Res;
+
+        for (const Term& t : Terms) {
+            Res += t.Cof * T::Power(Value, t.Exp);
+        }
+        
+        return Res;
+    }
+
+    static std::vector<Polynomial> MakeSturmSequence(Polynomial Val) {
+        std::vector<Polynomial> Res;
+
+        Res.push_back(Val);
+
+        Val.ApplyDerivative(1);
+
+        Res.push_back(Val);
+
+        while (!Res.back().IsZero()) {
+            Res.push_back(
+                -(*(Res.rbegin() + 1) % Res.back())
+            );
+        }
+
+        Res.pop_back();
+
+        return Res;
+    }
+
+    // Returns the number of sign changes, or -1 if the value is a root
+    static int32_t CountSignChanges(const std::vector<Polynomial>& Sturm, const decltype(T::Real)& Value, bool& OutIsRoot) {
+        OutIsRoot = false;
+        int32_t Res = 0;
+
+        int32_t PriorSign = 0;
+        for (size_t i = 0; i < Sturm.size(); ++i) {
+            T Val = Sturm[i].Evaluate(Value);
+
+            if (!Val.IsReal()) {
+                throw std::runtime_error("Imaginary detected!");
+            }
+
+            if (Val.IsZero()) {
+                if (i == 0) {
+                    OutIsRoot = true;
+                }
+            } else {
+                int32_t NewSign = Val.Real < 0 ? -1 : 1;
+                if (PriorSign != 0 && PriorSign != NewSign) {
+                    ++Res;
+                }
+                PriorSign = NewSign;
+            }
+        }
+        
+        return Res;
+    }
+
+    static int32_t MinNumRootsEnclosed(
+        const std::vector<Polynomial>& Sturm,
+        const decltype(T::Real)& Lower,
+        const decltype(T::Real)& Upper)
+    {
+        if (Lower == Upper) throw std::runtime_error("Region of size 0");
+
+        bool LowerIsRoot, UpperIsRoot;
+        int32_t LowerSignChange = CountSignChanges(Sturm, Lower, LowerIsRoot);
+        int32_t UpperSignChange = CountSignChanges(Sturm, Upper, UpperIsRoot);
+
+        return (LowerIsRoot ? 1 : 0) + (UpperIsRoot ? 1 : 0) + abs(abs(LowerSignChange) - abs(UpperSignChange));
+    }
+
+    // Abs value of all roots should be <= this
+    static decltype(T::Real) CauchyBounds(const Polynomial& Value) {
+        decltype(T::Real) Largest = 0;
+
+        decltype(T::Real) Tmp;
+        for (const Term& t : Value.Terms) {
+            if (!t.Cof.IsReal()) {
+                throw std::runtime_error("Non real coefficient detected");
+            }
+
+            Tmp = t.Cof.Real;
+
+            Tmp.ApplyAbs();
+
+            if (Tmp > Largest) {
+                Largest = std::move(Tmp);
+            }
+        }
+
+        Tmp = 1;
+
+        return Largest / Value.GetLeadingTerm().Cof.Real + Tmp;
+    }
 
     // Serde
     static std::string ToString(const Polynomial& Val, int64_t MaxDigits = 3) {
@@ -163,8 +269,9 @@ public:
     Polynomial operator-() const {
         Polynomial Res = *this;
         for (Term& t : Res.Terms) {
-            t.Cof = T::Negate(t.Cof);
+            t.Cof.ApplyNegate();
         }
+        Res._UpdateDebugStr();
         return Res;
     }
     Polynomial& operator-=(const Polynomial Other) {
@@ -209,26 +316,26 @@ public:
     }
     Polynomial& operator/=(const Polynomial Other) {
         Polynomial _ = *this;
-        _.ComputeRemainder(Other, *this);
+        _.ApplyRemainder(Other, *this);
         _UpdateDebugStr();
         return *this;
     }
     Polynomial operator/(const Polynomial Other) const {
         Polynomial _ = *this;
         Polynomial Quotient;
-        _.ComputeRemainder(Other, Quotient);
+        _.ApplyRemainder(Other, Quotient);
         return Quotient;
     }
     Polynomial& operator%=(const Polynomial Other) {
         Polynomial _;
-        ComputeRemainder(Other, _);
+        ApplyRemainder(Other, _);
         _UpdateDebugStr();
         return *this;
     }
     Polynomial operator%(const Polynomial& Other) const {
         Polynomial Remainder = *this;
         Polynomial _;
-        Remainder.ComputeRemainder(Other, _);
+        Remainder.ApplyRemainder(Other, _);
         return Remainder;
     }
 };
