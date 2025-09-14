@@ -6,8 +6,6 @@
 #include <iostream>
 #include <assert.h>
 
-#pragma optimize("", off)
-
 template<typename F, typename H>
 concept WideEnough = std::unsigned_integral<F> && std::unsigned_integral<H> && (sizeof(F) == 2 * sizeof(H));
 

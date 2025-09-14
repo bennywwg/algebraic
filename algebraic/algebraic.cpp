@@ -13,8 +13,6 @@ using R = Rational<I>;
 using Z = Complex<R>;
 using P = Polynomial<Z>;
 
-#pragma optimize("", off)
-
 std::string RoundedString(R Val, int RoundToDecimal) {
     R scale = R::Pow(R(10), RoundToDecimal);
     
@@ -59,6 +57,9 @@ void run() {
         R::Pow(n, 10) / R::Pow(d, 10) - R::Pow(n / d, 10)
     ) << "\n";
 
+    std::cout << "\n" << R::ToString(R(0.0001)) << "\n";
+    std::cout << "\n" << R::ToString(R(1e-320), 400) << "\n";
+
     std::cout << "\nComplex:\n\n";
 
     Z complex = Z::MakeImag(n);
@@ -83,7 +84,7 @@ void run() {
 
     R cauchy = P::CauchyBounds(roots);
 
-    auto Roots = P::EvaluateRootsInRange(sturm, -cauchy, cauchy, R::FromString("0.0001"));
+    auto Roots = P::EvaluateRootsInRange(sturm, -cauchy, cauchy, R(0.0001));
 
     for (size_t i = 0; i < Roots.size(); ++i) {
         std::cout << "Root " << i << " = " << RoundedString(Roots[i], 3) << "\n";

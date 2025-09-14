@@ -4,6 +4,27 @@
 
 #include <map>
 
+template<typename F>
+struct FloatTraits;
+
+template<>
+struct FloatTraits<float> {
+    using bits_t = uint32_t;
+    static constexpr bits_t exponent_mask = 0x7F800000u;
+    static constexpr bits_t fraction_mask = 0x007FFFFFu;
+    static constexpr uint32_t exponent_shift = 23;
+    static constexpr uint32_t exponent_bias  = 127;
+};
+
+template<>
+struct FloatTraits<double> {
+    using bits_t = uint64_t;
+    static constexpr bits_t exponent_mask = 0x7FF0000000000000ull;
+    static constexpr bits_t fraction_mask = 0x000FFFFFFFFFFFFFull;
+    static constexpr uint32_t exponent_shift = 52;
+    static constexpr uint32_t exponent_bias  = 1023;
+};
+
 template<typename T = BigInt<>>
 class Rational {
     // Val = A / B
@@ -25,18 +46,23 @@ public:
     Rational(int64_t Val) : A { Val } { }
     template<std::floating_point F>
     Rational(F Val) {
-        static_assert(std::is_same_v<F, double>);
-        const uint64_t bits = *reinterpret_cast<const uint64_t*>(&Val);
+        static_assert(std::is_same_v<F, double> || std::is_same_v<F, float>);
+        static_assert(std::numeric_limits<F>::is_iec559);
         
-        bool sign = Val < 0;
-        uint64_t fraction = bits & ((1ULL << 52) - 1);
-        uint64_t exponent = (bits >> 52) & 0x7FF;
-        
-        Rational Res = Pow(2, static_cast<int64_t>(exponent) - 1023);
-        Res *= Rational((1ULL << 52) | fraction);
-        Res.A.ApplySign(sign);
+        using traits = FloatTraits<F>;
+        using bits_t = traits::bits_t;
 
-        *this = Res;
+        const bits_t bits = std::bit_cast<bits_t>(Val);
+        
+        const bool sign = Val < 0;
+        const bits_t fraction = bits & traits::fraction_mask;
+        const bits_t exponent = (bits & traits::exponent_mask) >> traits::exponent_shift;
+
+        const bool isDenormalized = (exponent == 0) && (fraction != 0);
+        
+        *this = Pow(2, static_cast<int64_t>(isDenormalized ? bits_t(1) : exponent) - static_cast<int64_t>(traits::exponent_bias));
+        *this *= (Rational(isDenormalized ? 0 : 1u) + Rational(T(fraction), T::Power2(traits::exponent_shift)));
+        A.ApplySign(sign);
     }
     Rational(const T& Val) : A { Val } {}
     Rational(const T& Val, const T& Denom) : A { Val }, B { Denom } {
@@ -58,7 +84,7 @@ public:
         return A / B + (A > 0 && A % B);
     }
     T Round() const {
-        return A >= 0 ? (A + B >> 1) / B : (A - B >> 1) / B;
+        return A >= 0 ? (A + (B >> 1)) / B : (A - (B >> 1)) / B;
     }
 
     bool IsZero() const {
@@ -98,7 +124,7 @@ public:
         return R;
     }
 
-    static std::string ToString(Rational Val, int64_t MaxDigits = 3) {
+    static std::string ToString(Rational Val, int64_t MaxDigits = 10) {
         std::string Res = Val.A.Sign() < 0 ? "-" : "";
         if (Val.A.Sign() < 0) Val.A = -Val.A;
         T Quot = Val.A / Val.B;

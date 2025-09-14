@@ -125,7 +125,7 @@ public:
         _UpdateDebugStr();
     }
 
-    
+
 
     T Evaluate(const T& Value) const {
         T Res;
@@ -257,7 +257,7 @@ public:
 
 
     // Serde
-    static std::string ToString(const Polynomial& Val, int64_t MaxDigits = 3) {
+    static std::string ToString(const Polynomial& Val, int64_t MaxDigits = 10) {
         if (Val.IsZero()) {
             return "0";
         }

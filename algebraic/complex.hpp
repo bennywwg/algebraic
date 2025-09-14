@@ -34,7 +34,7 @@ public:
     }
 
     // Serde
-    static std::string ToString(Complex Val, int64_t MaxDigits = 3) {
+    static std::string ToString(Complex Val, int64_t MaxDigits = 10) {
         if (Val.Real.IsZero() && Val.Imag.IsZero()) {
             return "0";
         }
