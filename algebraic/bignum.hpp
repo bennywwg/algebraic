@@ -6,6 +6,8 @@
 #include <iostream>
 #include <assert.h>
 
+#pragma optimize("", off)
+
 template<typename F, typename H>
 concept WideEnough = std::unsigned_integral<F> && std::unsigned_integral<H> && (sizeof(F) == 2 * sizeof(H));
 
@@ -33,6 +35,9 @@ class BigInt {
 
 public:
     BigInt() = default;
+    BigInt(bool Val) {
+        m_Data = { Val ? 1u : 0u };
+    }
     template<std::integral T>
     BigInt(const T Val) {
         using U = std::make_unsigned_t<T>;
@@ -196,15 +201,15 @@ public:
 
         ApplyShiftWordsRight(Amount / m_wordBits);
 
-        if (BitShift == 0 || IsZero()) {
+        if (BitShift == 0) {
             return;
         }
 
         H Carry = 0;
         for (int64_t i = m_Data.size() - 1; i >= 0; --i) {
-            F Temp = (static_cast<F>(m_Data[i]) >> BitShift) | (static_cast<F>(Carry) << (m_wordBits - BitShift));
-            Carry = m_Data[i] & ((1ULL << BitShift) - 1);
-            m_Data[i] = lsb(Temp);
+            H Temp = (m_Data[i] >> BitShift) | (Carry << (m_wordBits - BitShift));
+            Carry = m_Data[i] & ((1u << BitShift) - 1);
+            m_Data[i] = Temp;
         }
 
         normalize();
@@ -472,6 +477,24 @@ public:
     BigInt operator%(const BigInt& Other) const {
         BigInt Res = *this;
         Res.ApplyRemainder(Other);
+        return Res;
+    }
+    BigInt& operator<<=(const size_t Amount) {
+        ApplyShiftLeft(Amount);
+        return *this;
+    }
+    BigInt operator<<(const size_t Amount) const {
+        BigInt Res = *this;
+        Res <<= Amount;
+        return Res;
+    }
+    BigInt& operator>>=(const size_t Amount) {
+        ApplyShiftRight(Amount);
+        return *this;
+    }
+    BigInt operator>>(const size_t Amount) const {
+        BigInt Res = *this;
+        Res >>= Amount;
         return Res;
     }
     bool operator==(const BigInt& Other) const {

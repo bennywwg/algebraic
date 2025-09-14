@@ -13,11 +13,13 @@ using R = Rational<I>;
 using Z = Complex<R>;
 using P = Polynomial<Z>;
 
+#pragma optimize("", off)
+
 std::string RoundedString(R Val, int RoundToDecimal) {
     R scale = R::Pow(R(10), RoundToDecimal);
-    R mid = scale + scale * R(0.5);
     
-    return R::ToString(scale);
+    return R::ToString(R((Val * scale).Round()) / scale);
+    //return R::ToString(scale);
 }
 
 P GenerateH(unsigned int n) {
@@ -81,7 +83,7 @@ void run() {
 
     R cauchy = P::CauchyBounds(roots);
 
-    auto Roots = P::EvaluateRootsInRange(sturm, -cauchy, cauchy, R::FromString("0.001"));
+    auto Roots = P::EvaluateRootsInRange(sturm, -cauchy, cauchy, R::FromString("0.0001"));
 
     for (size_t i = 0; i < Roots.size(); ++i) {
         std::cout << "Root " << i << " = " << RoundedString(Roots[i], 3) << "\n";

@@ -25,7 +25,7 @@ public:
     Rational(int64_t Val) : A { Val } { }
     template<std::floating_point F>
     Rational(F Val) {
-        static_assert(std::type)
+        static_assert(std::is_same_v<F, double>);
         const uint64_t bits = *reinterpret_cast<const uint64_t*>(&Val);
         
         bool sign = Val < 0;
@@ -51,6 +51,16 @@ public:
         return B;
     }
 
+    T Floor() const {
+        return A / B - (A < 0 && A % B);
+    }
+    T Ceil() const {
+        return A / B + (A > 0 && A % B);
+    }
+    T Round() const {
+        return A >= 0 ? (A + B >> 1) / B : (A - B >> 1) / B;
+    }
+
     bool IsZero() const {
         return A.IsZero();
     }
@@ -59,8 +69,10 @@ public:
         LHS.A = T::Pow(LHS.A, abs(RHS));
         LHS.B = T::Pow(LHS.B, abs(RHS));
 
-        LHS.ApplyReciprocal();
-        
+        if (RHS < 0) {
+            LHS.ApplyReciprocal();
+        }
+
         return LHS;
     }
 

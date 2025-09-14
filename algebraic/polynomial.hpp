@@ -2,6 +2,8 @@
 
 #include "complex.hpp"
 
+#include <functional>
+
 template<typename T = Complex<>>
 class Polynomial {
 private:
