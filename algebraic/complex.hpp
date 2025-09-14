@@ -1,6 +1,6 @@
 #pragma once
 
-#include "fixed.hpp"
+#include "rational.hpp"
 
 template<typename T = Rational<>>
 class Complex {

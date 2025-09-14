@@ -34,16 +34,26 @@ class BigInt {
 public:
     BigInt() = default;
     template<std::integral T>
-    requires (sizeof(T) <= sizeof(H))
-    BigInt(T Val) {
+    BigInt(const T Val) {
         using U = std::make_unsigned_t<T>;
+        U UVal;
         if constexpr (std::signed_integral<T>) {
             m_Sign = Val < 0;
-            m_Data = { static_cast<U>(m_Sign ? -Val : Val) };
+            UVal = m_Sign ? abs(Val) : Val;
         } else {
             m_Sign = false;
-            m_Data = { static_cast<U>(Val) };
+            UVal = Val;
         }
+
+        if constexpr (sizeof(T) <= sizeof(H)) {
+            m_Data = { static_cast<U>(UVal) };
+        } else {
+            static_assert(sizeof(T) % sizeof(H) == 0);
+            for (size_t i = 0; i < sizeof(T) / sizeof(H); ++i) {
+                m_Data.push_back(reinterpret_cast<const H*>(&UVal)[i]);
+            }
+        }
+
         normalize();
     }
     
@@ -206,6 +216,18 @@ public:
         if (Divisor.IsZero()) throw std::runtime_error("Divide by zero");
 
         const bool QuotientSign = m_Sign ^ Divisor.m_Sign;
+
+        if (m_Data.size() == 1 && Divisor.m_Data.size() == 1) {
+            if (OutQuotient) {
+                OutQuotient->m_Data = { m_Data[0] / Divisor.m_Data[0] };
+                OutQuotient->m_Sign = QuotientSign;
+                OutQuotient->normalize();
+            }
+            m_Data[0] = m_Data[0] % Divisor.m_Data[0];
+            normalize();
+            return;
+        }
+        
         const bool RemainderSign = m_Sign;
 
         if (OutQuotient) OutQuotient->ApplyZero(); 

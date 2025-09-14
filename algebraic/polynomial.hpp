@@ -123,6 +123,8 @@ public:
         _UpdateDebugStr();
     }
 
+    
+
     T Evaluate(const T& Value) const {
         T Res;
 
@@ -182,6 +184,8 @@ public:
         return Res;
     }
 
+    // Should be inclusive on lower, exclusive on upper
+    // Might not work perfectly if lower or upper is a root
     static int32_t MinNumRootsEnclosed(
         const std::vector<Polynomial>& Sturm,
         const decltype(T::Real)& Lower,
@@ -189,11 +193,40 @@ public:
     {
         if (Lower == Upper) throw std::runtime_error("Region of size 0");
 
-        bool LowerIsRoot, UpperIsRoot;
+        bool LowerIsRoot, Unused;
         int32_t LowerSignChange = CountSignChanges(Sturm, Lower, LowerIsRoot);
-        int32_t UpperSignChange = CountSignChanges(Sturm, Upper, UpperIsRoot);
+        int32_t UpperSignChange = CountSignChanges(Sturm, Upper, Unused);
 
-        return (LowerIsRoot ? 1 : 0) + (UpperIsRoot ? 1 : 0) + abs(abs(LowerSignChange) - abs(UpperSignChange));
+        return (LowerIsRoot ? 1 : 0) + abs(abs(LowerSignChange) - abs(UpperSignChange));
+    }
+
+    static std::vector<decltype(T::Real)> EvaluateRootsInRange(
+        const std::vector<Polynomial>& Sturm,
+        const decltype(T::Real)& Lower,
+        const decltype(T::Real)& Upper,
+        const decltype(T::Real)& MaxError
+    ) {
+        std::vector<decltype(T::Real)> Roots;
+
+        std::function<void(decltype(T::Real), decltype(T::Real))> Bisect =
+            [&](decltype(T::Real) A, decltype(T::Real) B) {
+                int32_t NumRoots = MinNumRootsEnclosed(Sturm, A, B);
+                if (NumRoots == 0) return;
+                if (NumRoots == 1) {
+                    if ((B - A) <= MaxError)
+                        Roots.push_back((A + B) / 2);
+                    else
+                        Bisect(A, (A + B) / 2), Bisect((A + B) / 2, B);
+                    return;
+                }
+                decltype(T::Real) Mid = (A + B) / 2;
+                Bisect(A, Mid);
+                Bisect(Mid, B);
+            };
+
+        Bisect(Lower, Upper);
+        std::sort(Roots.begin(), Roots.end());
+        return Roots;
     }
 
     // Abs value of all roots should be <= this
@@ -219,6 +252,7 @@ public:
 
         return Largest / Value.GetLeadingTerm().Cof.Real + Tmp;
     }
+
 
     // Serde
     static std::string ToString(const Polynomial& Val, int64_t MaxDigits = 3) {

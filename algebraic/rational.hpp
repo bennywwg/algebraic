@@ -22,22 +22,44 @@ class Rational {
 
 public:
     Rational() = default;
-    Rational(int32_t Val) : A { Val } { }
+    Rational(int64_t Val) : A { Val } { }
+    template<std::floating_point F>
+    Rational(F Val) {
+        static_assert(std::type)
+        const uint64_t bits = *reinterpret_cast<const uint64_t*>(&Val);
+        
+        bool sign = Val < 0;
+        uint64_t fraction = bits & ((1ULL << 52) - 1);
+        uint64_t exponent = (bits >> 52) & 0x7FF;
+        
+        Rational Res = Pow(2, static_cast<int64_t>(exponent) - 1023);
+        Res *= Rational((1ULL << 52) | fraction);
+        Res.A.ApplySign(sign);
+
+        *this = Res;
+    }
     Rational(const T& Val) : A { Val } {}
     Rational(const T& Val, const T& Denom) : A { Val }, B { Denom } {
         if (Denom.IsZero()) throw std::runtime_error("Attempting reciprocal of zero rational");
         normalize();
     }
 
+    T Numerator() const {
+        return A;
+    }
+    T Denominator() const {
+        return B;
+    }
+
     bool IsZero() const {
         return A.IsZero();
     }
 
-    static Rational Pow(Rational LHS, size_t RHS) {
-        LHS.A = T::Pow(LHS.A, RHS);
-        LHS.B = T::Pow(LHS.B, RHS);
+    static Rational Pow(Rational LHS, int64_t RHS) {
+        LHS.A = T::Pow(LHS.A, abs(RHS));
+        LHS.B = T::Pow(LHS.B, abs(RHS));
 
-        LHS.normalize();
+        LHS.ApplyReciprocal();
         
         return LHS;
     }

@@ -2,7 +2,7 @@
 //
 
 #include "bignum.hpp"
-#include "fixed.hpp"
+#include "rational.hpp"
 #include "complex.hpp"
 #include "polynomial.hpp"
 
@@ -13,11 +13,23 @@ using R = Rational<I>;
 using Z = Complex<R>;
 using P = Polynomial<Z>;
 
-std::string Global_ToString(const I& Val) {
-    return std::to_string(Val.Size());
+std::string RoundedString(R Val, int RoundToDecimal) {
+    R scale = R::Pow(R(10), RoundToDecimal);
+    R mid = scale + scale * R(0.5);
+    
+    return R::ToString(scale);
 }
 
-int main() {
+P GenerateH(unsigned int n) {
+    P result(1, 0);
+    for (unsigned int k = 1; k <= n; ++k) {
+        unsigned int m = 2 * k - 1;
+        result *= P(1, 2) - P(m * m, 0);
+    }
+    return result;
+}
+
+void run() {
     I a = I::FromString("80594783298243082394983980594783298243082394983983298243082394983980594783");
     I b = I::FromString("2430823949839805947832982430823949839");
     I r;
@@ -59,16 +71,32 @@ int main() {
     std::cout << "(" << P::ToString(num) << ") / (" << P::ToString(denom) << ") = \n";
     std::cout << P::ToString(num / denom) << " rem " << P::ToString(num % denom) << "\n";
 
-    P roots = P(1, 4) - P(10, 2) + P(1, 0);
-
     std::cout << "\nsturm\n\n";
+
+    P roots = GenerateH(4);
+
+    std::cout << "P = " << P::ToString(roots) << "\n";
 
     auto sturm = P::MakeSturmSequence(roots);
 
-    R testVal1 = P::CauchyBounds(roots);
-    R testVal2 = -testVal1;
+    R cauchy = P::CauchyBounds(roots);
 
-    std::cout << "Num = " << P::MinNumRootsEnclosed(sturm, testVal1, testVal2) << "\n";
+    auto Roots = P::EvaluateRootsInRange(sturm, -cauchy, cauchy, R::FromString("0.001"));
+
+    for (size_t i = 0; i < Roots.size(); ++i) {
+        std::cout << "Root " << i << " = " << RoundedString(Roots[i], 3) << "\n";
+    }
+    
+    std::cout << "\n\n";
+}
+
+int main() {
+    try {
+        run();
+    } catch (std::runtime_error er) {
+        std::cout << er.what() << "\n";
+        return 1;
+    }
 
     return 0;
 }
