@@ -3,6 +3,7 @@
 #include "bignum.hpp"
 
 #include <map>
+#include <bit>
 
 template<typename F>
 struct FloatTraits;
@@ -155,9 +156,42 @@ public:
         return Res;
     }
 
-    const std::wstring ToString() const {
-        std::string Res = ToString(*this);
-        return std::wstring(Res.begin(), Res.end());
+    static std::string ToScientific(Rational Val) {
+        if (Val.IsZero()) return "0e+0";
+
+        Rational Lower = 1;
+        Rational Upper = 10;
+
+        int64_t Exp = 0;
+
+        if (Val < Lower) {
+            while (Val < Lower) {
+                Val.A *= T(10);
+                Val.normalize();
+                --Exp;
+            }
+        } else if (Val >= Upper) {
+            while (Val >= Upper) {
+                Val.B *= T(10);
+                Val.normalize();
+                ++Exp;
+            }
+        }
+
+        Val *= Rational(1000);
+
+        Val = Val.Round();
+
+        if (Val >= Rational(10000)) {
+            Val /= Rational(10000);
+            ++Exp;
+        } else {
+            Val /= Rational(1000);
+        }
+
+        std::string Coefficient = ToString(Val, 3);
+
+        return Coefficient + "e" + std::to_string(Exp);
     }
 
     void ApplyAbs() {

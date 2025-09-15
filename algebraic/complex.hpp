@@ -45,12 +45,6 @@ public:
         }
     }
 
-    const std::wstring ToString() const {
-        return L"ABC";
-        std::string Res = ToString(*this);
-        return std::wstring(Res.begin(), Res.end());
-    }
-
     static Complex Power(Complex LHS, size_t RHS) {
         Complex Result;
         Result.Real = T { 1 };

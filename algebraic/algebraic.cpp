@@ -57,8 +57,9 @@ void run() {
         R::Pow(n, 10) / R::Pow(d, 10) - R::Pow(n / d, 10)
     ) << "\n";
 
-    std::cout << "\n" << R::ToString(R(0.0001)) << "\n";
-    std::cout << "\n" << R::ToString(R(1e-320), 400) << "\n";
+    std::cout << "\n" << R::ToScientific(R(0.0001)) << "\n";
+    std::cout << "\n" << R::ToScientific(R(1234e-320)) << "\n";
+    std::cout << "\n" << R::ToScientific(R(93847594759248)) << "\n";
 
     std::cout << "\nComplex:\n\n";
 
@@ -87,7 +88,7 @@ void run() {
     auto Roots = P::EvaluateRootsInRange(sturm, -cauchy, cauchy, R(0.0001));
 
     for (size_t i = 0; i < Roots.size(); ++i) {
-        std::cout << "Root " << i << " = " << RoundedString(Roots[i], 3) << "\n";
+        std::cout << "Root " << i << " ~= " << RoundedString(Roots[i], 3) << "\n";
     }
     
     std::cout << "\n\n";
