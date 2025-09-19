@@ -1,10 +1,10 @@
 #pragma once
 
-#include "complex.hpp"
+#include "rational.hpp"
 
 #include <functional>
 
-template<typename T = Complex<>>
+template<typename T = Rational<>>
 class Polynomial {
 private:
     std::string DebugStr = "0";
@@ -33,7 +33,7 @@ private:
     // May invalidate other coefficient references
     // You must normalize after using those, or at least ensure the value is not left at zero
     // Zero coefficients are not allowed
-    T& GetCof(uint32_t Exp) {
+    T& GetCofMutable(uint32_t Exp) {
         auto it = Terms.begin();
         while (it != Terms.end()) {
             if (it->Exp == Exp) {
@@ -125,15 +125,32 @@ public:
         _UpdateDebugStr();
     }
 
-
-
     T Evaluate(const T& Value) const {
         T Res;
 
         for (const Term& t : Terms) {
-            Res += t.Cof * T::Power(Value, t.Exp);
+            Res += t.Cof * T::Pow(Value, t.Exp);
         }
         
+        return Res;
+    }
+
+    static Polynomial Pow(Polynomial Base, uint32_t exp) {
+        Polynomial Res = { 1, 0 };
+        while (exp > 0) {
+            if (exp & 1) Res = Res * Base;
+            Base = Base * Base;
+            exp >>= 1;
+        }
+        return Res;
+    }
+
+    // P ∘ Q
+    static Polynomial Composite(Polynomial P, Polynomial Q) {
+        Polynomial Res;
+        for (auto &Term : P.Terms) {
+            Res += Polynomial(Term.Cof, 0) * Pow(Q, Term.Exp);
+        }
         return Res;
     }
 
@@ -158,7 +175,7 @@ public:
     }
 
     // Returns the number of sign changes, or -1 if the value is a root
-    static int32_t CountSignChanges(const std::vector<Polynomial>& Sturm, const decltype(T::Real)& Value, bool& OutIsRoot) {
+    static int32_t CountSignChanges(const std::vector<Polynomial>& Sturm, const T& Value, bool& OutIsRoot) {
         OutIsRoot = false;
         int32_t Res = 0;
 
@@ -166,16 +183,12 @@ public:
         for (size_t i = 0; i < Sturm.size(); ++i) {
             T Val = Sturm[i].Evaluate(Value);
 
-            if (!Val.IsReal()) {
-                throw std::runtime_error("Imaginary detected!");
-            }
-
             if (Val.IsZero()) {
                 if (i == 0) {
                     OutIsRoot = true;
                 }
             } else {
-                int32_t NewSign = Val.Real < 0 ? -1 : 1;
+                int32_t NewSign = Val < 0 ? -1 : 1;
                 if (PriorSign != 0 && PriorSign != NewSign) {
                     ++Res;
                 }
@@ -190,8 +203,8 @@ public:
     // Might not work perfectly if lower or upper is a root
     static int32_t MinNumRootsEnclosed(
         const std::vector<Polynomial>& Sturm,
-        const decltype(T::Real)& Lower,
-        const decltype(T::Real)& Upper)
+        const T& Lower,
+        const T& Upper)
     {
         if (Lower == Upper) throw std::runtime_error("Region of size 0");
 
@@ -202,16 +215,16 @@ public:
         return (LowerIsRoot ? 1 : 0) + abs(abs(LowerSignChange) - abs(UpperSignChange));
     }
 
-    static std::vector<decltype(T::Real)> EvaluateRootsInRange(
+    static std::vector<T> EvaluateRootsInRange(
         const std::vector<Polynomial>& Sturm,
-        const decltype(T::Real)& Lower,
-        const decltype(T::Real)& Upper,
-        const decltype(T::Real)& MaxError
+        const T& Lower,
+        const T& Upper,
+        const T& MaxError
     ) {
-        std::vector<decltype(T::Real)> Roots;
+        std::vector<T> Roots;
 
-        std::function<void(decltype(T::Real), decltype(T::Real))> Bisect =
-            [&](decltype(T::Real) A, decltype(T::Real) B) {
+        std::function<void(T, T)> Bisect =
+            [&](T A, T B) {
                 int32_t NumRoots = MinNumRootsEnclosed(Sturm, A, B);
                 if (NumRoots == 0) return;
                 if (NumRoots == 1) {
@@ -221,7 +234,7 @@ public:
                         Bisect(A, (A + B) / 2), Bisect((A + B) / 2, B);
                     return;
                 }
-                decltype(T::Real) Mid = (A + B) / 2;
+                T Mid = (A + B) / 2;
                 Bisect(A, Mid);
                 Bisect(Mid, B);
             };
@@ -232,16 +245,12 @@ public:
     }
 
     // Abs value of all roots should be <= this
-    static decltype(T::Real) CauchyBounds(const Polynomial& Value) {
-        decltype(T::Real) Largest = 0;
+    static T CauchyBounds(const Polynomial& Value) {
+        T Largest = 0;
 
-        decltype(T::Real) Tmp;
+        T Tmp;
         for (const Term& t : Value.Terms) {
-            if (!t.Cof.IsReal()) {
-                throw std::runtime_error("Non real coefficient detected");
-            }
-
-            Tmp = t.Cof.Real;
+            Tmp = t.Cof;
 
             Tmp.ApplyAbs();
 
@@ -252,7 +261,7 @@ public:
 
         Tmp = 1;
 
-        return Largest / Value.GetLeadingTerm().Cof.Real + Tmp;
+        return Largest / Value.GetLeadingTerm().Cof + Tmp;
     }
 
 
@@ -267,16 +276,9 @@ public:
         for (size_t i = Val.Terms.size() - 1;; --i) {
             const Term& t = Val.Terms[i];
             const Term n = (i == 0) ? Term() : Val.Terms[i - 1];
-            if (!t.Cof.IsReal()) {
-                Res += "(";
-            }
 
             if (t.Cof != 1 || t.Exp == 0) {
                 Res += T::ToString(InvertNextSign ? -t.Cof : t.Cof);
-            }
-
-            if (!t.Cof.IsReal()) {
-                Res += ")";
             }
 
             if (t.Exp > 0) {
@@ -289,7 +291,7 @@ public:
             
             if (i == 0) break;
 
-            if (n.Cof.IsReal() && n.Cof.Real < 0) {
+            if (n.Cof < 0) {
                 InvertNextSign = true;
                 Res += " - ";
             } else {
@@ -312,7 +314,7 @@ public:
     }
     Polynomial& operator-=(const Polynomial Other) {
         for (Term const& o : Other.Terms) {
-            GetCof(o.Exp) -= o.Cof;
+            GetCofMutable(o.Exp) -= o.Cof;
         }
         normalize();
         _UpdateDebugStr();
@@ -325,7 +327,7 @@ public:
     }
     Polynomial& operator+=(const Polynomial Other) {
         for (Term const& o : Other.Terms) {
-            GetCof(o.Exp) += o.Cof;
+            GetCofMutable(o.Exp) += o.Cof;
         }
         normalize();
         _UpdateDebugStr();

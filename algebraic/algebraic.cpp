@@ -5,13 +5,15 @@
 #include "rational.hpp"
 #include "complex.hpp"
 #include "polynomial.hpp"
+#include "polyval.hpp"
 
 #include <map>
 
 using I = BigInt<>;
 using R = Rational<I>;
+using P = Polynomial<R>;
+using V = PolyVal<P>;
 using Z = Complex<R>;
-using P = Polynomial<Z>;
 
 std::string RoundedString(R Val, int RoundToDecimal) {
     R scale = R::Pow(R(10), RoundToDecimal);
@@ -77,7 +79,16 @@ void run() {
 
     std::cout << "\nsturm\n\n";
 
-    P roots = GenerateH(4);
+    {
+        P pp = P(1, 0) + P(2, 1) + P(3, 2);
+        P qp = P(1, 1) + P(1, 0);
+        P cp = P::Composite(pp, qp);
+
+        std::cout << "Compound = " << P::ToString(cp) << "\n";
+    }
+
+    P roots = P(1, 2) - P(2, 0);//GenerateH(4);
+    roots = P::Pow(roots, 2);
 
     std::cout << "P = " << P::ToString(roots) << "\n";
 
@@ -85,10 +96,10 @@ void run() {
 
     R cauchy = P::CauchyBounds(roots);
 
-    auto Roots = P::EvaluateRootsInRange(sturm, -cauchy, cauchy, R(0.0001));
+    auto Roots = P::EvaluateRootsInRange(sturm, -cauchy, cauchy, R::Pow(10, -10));
 
     for (size_t i = 0; i < Roots.size(); ++i) {
-        std::cout << "Root " << i << " ~= " << RoundedString(Roots[i], 3) << "\n";
+        std::cout << "Root " << i << " ~= " << RoundedString(Roots[i], 10) << "\n";
     }
     
     std::cout << "\n\n";

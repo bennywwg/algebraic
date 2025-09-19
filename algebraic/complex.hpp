@@ -45,7 +45,7 @@ public:
         }
     }
 
-    static Complex Power(Complex LHS, size_t RHS) {
+    static Complex Pow(Complex LHS, size_t RHS) {
         Complex Result;
         Result.Real = T { 1 };
         Result.Imag = T { 0 };
