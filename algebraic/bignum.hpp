@@ -80,7 +80,7 @@ public:
         return m_Data.empty();
     }
     size_t TopBitIndex() const {
-        if (IsZero()) return 0;
+        if (IsZero()) throw std::runtime_error("TopBitIndex(0) is undefined");
 
         size_t LastIndex = Size() - 1;
         H TopWord = m_Data[LastIndex];
@@ -91,11 +91,11 @@ public:
             ++BitsInTop;
         }
 
-        return BitsInTop + LastIndex * sizeof(H) * 8;
+        return BitsInTop + LastIndex * sizeof(H) * 8 - 1;
     }
     size_t Log2Unsigned() const {
         if (IsZero()) throw std::runtime_error("Log2Unsigned(0) is undefined");
-        return TopBitIndex() - 1;
+        return TopBitIndex();
     }
     // return sign(abs(LHS) - abs(RHS))
     static int32_t DiffMagnitude(const BigInt& LHS, const BigInt& RHS) {
@@ -110,7 +110,34 @@ public:
         }
         return 0;
     }
-    
+    bool GetBit(size_t Index) const {
+        size_t WordIndex = Index / m_wordBits;
+        size_t BitIndex = Index % m_wordBits;
+
+        if (WordIndex >= m_Data.size()) {
+            return false;
+        }
+
+        return (m_Data[WordIndex] & (H(1) << BitIndex)) != 0;
+    }
+    void SetBit(size_t Index, bool Value) {
+        size_t WordIndex = Index / m_wordBits;
+        size_t BitIndex = Index % m_wordBits;
+
+        if (WordIndex >= m_Data.size()) {
+            if (!Value) {
+                return;
+            }
+            m_Data.resize(WordIndex + 1, 0);
+        }
+
+        if (Value) {
+            m_Data[WordIndex] |= (H(1) << BitIndex);
+        } else {
+            m_Data[WordIndex] &= ~(H(1) << BitIndex);
+            normalize();
+        }
+    }
 
     // Static functions
     // Return 2^Exp
@@ -236,11 +263,11 @@ public:
         if (OutQuotient) OutQuotient->ApplyZero(); 
         m_Sign = false;
 
-        const size_t DivisorBits = Divisor.TopBitIndex();
+        const size_t DivisorBits = Divisor.TopBitIndex() + 1;
 
         BigInt Operand;
         while (DiffMagnitude(*this, Divisor) >= 0) {
-            const size_t RemainderBits = TopBitIndex();
+            const size_t RemainderBits = TopBitIndex() + 1;
 
             Operand = Divisor;
             Operand.ApplySign(true);
@@ -267,6 +294,24 @@ public:
         }
 
         m_Sign = RemainderSign;
+        normalize();
+    }
+    void ApplyTruncateBits(size_t Bits) {
+        if (IsZero()) return;
+
+        const size_t TotalBits = Size() * sizeof(H) * 8;
+        if (Bits >= TotalBits) return;
+
+        const size_t WordsToKeep = Bits / (sizeof(H) * 8);
+        const size_t BitsInLastWord = Bits % (sizeof(H) * 8);
+
+        m_Data.resize(WordsToKeep + (BitsInLastWord > 0 ? 1 : 0), 0);
+
+        if (BitsInLastWord > 0) {
+            H Mask = (H(1) << BitsInLastWord) - 1;
+            m_Data[WordsToKeep] &= Mask;
+        }
+
         normalize();
     }
 

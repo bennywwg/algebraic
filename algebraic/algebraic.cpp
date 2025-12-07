@@ -5,14 +5,17 @@
 #include "rational.hpp"
 #include "complex.hpp"
 #include "polynomial.hpp"
-#include "polyval.hpp"
+#include "collatz.hpp"
+//#include "polyval.hpp"
 
 #include <map>
+#include <thread>
+#include <set>
 
 using I = BigInt<>;
 using R = Rational<I>;
 using P = Polynomial<R>;
-using V = PolyVal<P>;
+//using V = PolyVal<P>;
 using Z = Complex<R>;
 
 std::string RoundedString(R Val, int RoundToDecimal) {
@@ -107,7 +110,64 @@ void run() {
 
 int main() {
     try {
-        run();
+        I ValA = 1;
+        I ValB = 1;
+        size_t BShift = 25;
+        ValB *= I::Pow(I(2), BShift);
+
+        Cz::PrintStepsInfo(ValA);
+        Cz::PrintStepsInfo(ValB);
+
+        I c;
+        c = ValA + ValB;
+
+        size_t steps = 0;
+
+        while (c != I(1)) {
+            std::cout << Cz::ToString(c) << "\n";
+            MutliCollatz::From(c);
+            Cz::Pow3Exponentiations(c, 32);
+            Cz::Apply(c);
+            ++steps;
+        }
+
+        std::cout << Cz::ToString(c) << "\n";
+        std::cout << "\nTotal steps: " << steps << "\n";
+
+        return 0;
+
+        std::set<uint64_t> seen;
+
+        c = I(1);
+        I tmp;
+        for (int i = 0; i < 99999999; ++i) {
+            std::cout << Cz::ToString(c) << "\n";
+            c *= I(3);
+            c += I(1);
+            
+            if (false) {
+                tmp = c;
+                size_t nb = tmp.TopBitIndex();
+                if (nb >= 64) {
+                    tmp.ApplyShiftRight(nb - 64);
+                }
+                std::cout << Cz::ToString(tmp, 0, 128, 0) << "\n";
+            } else {
+                //c.Value.ApplyTruncateBits(8);
+
+                uint64_t v = c[0] & 0xFF;
+
+                if (seen.contains(v)) {
+                    std::cout << "Cycle detected at value: " << I::ToString(c) << ", in " << i << " steps.\n";
+                    break;
+                }
+                seen.insert(v);
+            }
+
+            
+            
+            //std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
     } catch (std::runtime_error er) {
         std::cout << er.what() << "\n";
         return 1;
