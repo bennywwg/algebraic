@@ -1,5 +1,5 @@
 // algebraic.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+// clang++ -O3 -std=c++26 ./algebraic/algebraic.cpp && ./a.out
 
 #include "bignum.hpp"
 #include "rational.hpp"
@@ -120,6 +120,7 @@ int main() {
 
         I c;
         c = ValA + ValB;
+        c = I::Pow(I(2), 15) - I(1);
 
         size_t steps = 0;
 
