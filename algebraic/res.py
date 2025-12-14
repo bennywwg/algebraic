@@ -28,16 +28,17 @@ def trim(n, x):
 # convert a residual array into a unique number
 def res_key(res):
     val = 0
-    for i, r in enumerate(res):
-        val += r * 3**i
+    for r in reversed(res):
+        val <<= 3
+        val += (r + 4)
     return val
 
 # make a residual from a number, the inverse of the res_key function
 def make_res(val):
     res = []
     while val != 0:
-        res.append(val % 3)
-        val = val // 3
+        res.append(val & 3)
+        val >>= 3
     return res
 
 class Res:
@@ -114,10 +115,48 @@ class Block:
     
 # make all residual sets up to n values long
 def make_all_res(n):
+    res = [[]]
+    for l in range(1, n + 1):
+        for key in range(3**l):
+            iter_res = []
+            for _ in range(l):
+                iter_res.append(key % 3)
+                key //= 3
+            res.append(iter_res)
+    return res
+
+def make_all_res_exactly(n):
     res = []
     for key in range(3**n):
-        res.append(make_res(key))
+        iter_res = []
+        for _ in range(n):
+            iter_res.append(key % 3)
+            key //= 3
+        res.append(iter_res)
     return res
+
+def remove_front_zeroes(res):
+    i = 0
+    n = len(res)
+    while i < n and res[i] == 0:
+        i += 1
+    return res[i:]
+
+def remove_front_zeroes_from_all(all_res):
+    out = []
+    seen = set()
+    for lst in all_res:
+        i = 0
+        n = len(lst)
+        while i < n and lst[i] == 0:
+            i += 1
+        trimmed = lst[i:]
+        k = res_key(trimmed)
+        if k not in seen:
+            seen.add(k)
+            out.append(list(trimmed))
+    return out
+    
 
 def make_all_blocks(n) -> List[Block]:
     res = []
@@ -158,6 +197,7 @@ def make_last_res(n, initial_res):
     b = Block(n, 0)
     for r in initial_res:
         res, block_val = b.res_m(r)
+        res = remove_front_zeroes(res)
         final_key = res_key(res)
         final_key = final_key << n | block_val
         if final_key not in seen:
@@ -167,15 +207,17 @@ def make_last_res(n, initial_res):
 
 def analyze_residuals(n):
     counts = {}
-    total_count = (2**n) * (2**n)
-    initial_res = make_cz_res(n)
+    total_count = (2**n)
+    initial_res = make_all_res(n)
     all_res = make_last_res(n, initial_res)
     for res, block_val in all_res:
         final_key = res_key(res)
+        print(f"{Block(n, block_val)} -> {res}")
         #final_key = final_key << n | block_val
-        final_key = block_val
+        #final_key = block_val
         counts[final_key] = counts.get(final_key, 0) + 1
     print(f"Coverage = {len(counts)} / {total_count}, {round(100 * len(counts) / total_count, 2)}% inputs")
+    print(list(map(lambda k: make_res(k), counts.keys())))
     if True:
         xs = sorted(counts.keys())
         ys = [counts[x] for x in xs]
