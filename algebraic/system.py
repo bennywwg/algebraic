@@ -8,10 +8,14 @@ from z3 import Bool, BoolVal, Xor, Or, And, Not, Solver
 
 # c3_2
 
-n = 6
+n = 12
 
 bits = []
 carries = []
+residuals = []
+
+def ternary(condition, yes, no):
+    pass
 
 def initialize_variables():
     total = 0
@@ -74,8 +78,7 @@ def half_adder(s: Solver, out_bit, out_iteration):
             prior_carry_var = get_carry(out_bit - 1, out_iteration)
             prior_bit = get_bit(out_bit - 1, out_iteration - 1)
             carry_m_op_exp = Or(And(in_bit_r, prior_bit), And(prior_bit, prior_carry_var), And(in_bit_r, prior_carry_var))
-            # carry does not need to depend on the operation type, the value will be unused with the incorrect operation
-            s.add(inout_bit_c == carry_m_op_exp)
+            s.add(inout_bit_c == And(op_bit_var, carry_m_op_exp));
 
 def construct_system(s):
     for it in range(n, 1, -1):
@@ -91,6 +94,8 @@ def construct_system(s):
 
     if True:
         for it in range(1, n + 1):
+            if it != 1:
+                continue
             bit_var = get_bit(1, it)
             exp = bit_var == BoolVal(True)
             s.add(exp)
@@ -102,12 +107,42 @@ print(carries)
 
 s = Solver()
 construct_system(s)
-print(s)
+#print(s)
 
 print("\nSolving...")
 print(s.check())
 m = s.model()
-#exit()
+
+
+solutions = []
+while False and s.check() == z3.sat:
+    m = s.model()
+    #print("Found solution m {m}")
+    solutions.append(m)
+
+    val = 0
+    for bit in range(1, n + 1):
+        bit_val = 1 if m.evaluate(get_bit(bit, 1)) else 0
+        val += 2**bit * bit_val
+        print(bit_val, "", end="")
+    
+    print(" <-", val)
+
+    block = []
+    for d in m:
+        v = d()                 # the Z3 variable
+        val = m[v]              # True or False
+        if z3.is_true(val):
+            block.append(v)
+        else:
+            block.append(z3.Not(v))
+
+    # Prevent this exact combination from occurring again
+    s.add(z3.Or([z3.Not(b) for b in block]))
+
+
+
+exit()
 for it in range(1, n + 1):
     if it != 1:
         for bit in range(n, 0, -1):
